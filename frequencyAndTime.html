@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<!--- <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.5.1/jquery.min.js"></script> -->
+<!--- <script src="https://ajax.googleapis.com/ajax/libs/prototype/1.7.0.0/prototype.js"></script> -->
+<title>Spectrum and Time Domain Audio Analysis using canvas 2d context</title>
+<style>
+	html, body, canvas { margin: 0; padding: 0; overflow: hidden; background: black; }
+</style>
+<script>
+
+	window.requestAnimFrame = (function(){
+	      return  window.requestAnimationFrame       || 
+	              window.webkitRequestAnimationFrame || 
+	              window.mozRequestAnimationFrame    || 
+	              window.oRequestAnimationFrame      || 
+	              window.msRequestAnimationFrame     || 
+	              function(/* function */ callback, /* DOMElement */ element){
+	                window.setTimeout(callback, 1000 / 60);
+	              };
+	    })();
+
+
+	var canvas, 
+		ctx, // canvas context
+		context, // web audio context
+		source,
+		analyser,
+		buffer,
+		freqByteData, // frequeny domain data
+		timeByteData; // time domain data
+
+	function init(){
+		canvas = document.getElementById('canvas'),
+		ctx = canvas.getContext('2d');
+		canvas.width = 1024;
+		canvas.height = 520;
+		initAudio();
+	}
+
+	function loadAudioBuffer(url) {
+	    var request = new XMLHttpRequest();
+	    request.open("GET", url, true);
+	    request.responseType = "arraybuffer";
+
+	    request.onload = function() { 
+			
+	        source.buffer = context.createBuffer(request.response, false /*true*/);;
+		    source.looping = true;
+			freqByteData = new Uint8Array(analyser.frequencyBinCount);
+			timeByteData = new Uint8Array(analyser.frequencyBinCount);
+		    source.noteOn(0.0);
+
+		    draw();
+	    }
+
+	    request.send();
+	}
+
+	function initAudio() {
+	    context = new webkitAudioContext();
+
+	    source = context.createBufferSource();
+	    analyser = context.createAnalyser();
+	    analyser.fftSize = 2048;
+
+	    // Connect audio processing graph
+	    source.connect(analyser);
+	    analyser.connect(context.destination);
+
+	    loadAudioBuffer("test.ogg");
+	}
+	
+	function color(r, g, b, a) {
+		return 'rgba(' + Math.round(r) + ',' + Math.round(g) + ',' + Math.round(b) + ',' + (a ? a : 1) + ')';
+	}
+	
+	function draw() {
+		
+		analyser.getByteFrequencyData(freqByteData);
+		analyser.getByteTimeDomainData(timeByteData);
+
+		ctx.fillStyle = color(0, 0, 0, 0.5);
+		ctx.fillRect(0,0,canvas.width,canvas.height);
+		
+		ctx.fillStyle = color(255,255,255);
+		
+		var len = freqByteData.length,
+			barWidth = canvas.width/len;
+		
+		for(var i = 0; i < len; i++) {
+			ctx.fillRect(i*barWidth, 256, barWidth, -freqByteData[i]);
+		}
+		
+		
+		len = timeByteData.length,
+		barWidth = canvas.width/len; 
+		
+		for(var i = 0; i < len; i++) {
+			ctx.fillRect(i*barWidth, 512, barWidth, -timeByteData[i]);
+		}
+		
+		requestAnimFrame(draw);
+	};
+
+
+</script>
+</head>
+<body onload="init()">
+	<canvas id='canvas'></canvas>
+</body>
+</html>
